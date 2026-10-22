@@ -1,4 +1,4 @@
-import 'server-only';
+﻿import 'server-only';
 import { requireAdmin } from '@/lib/db/queries';
 import { createSupabaseAdminClient } from '@/lib/db/supabase-admin';
 import { writeAuditLog } from '@/lib/security/audit-log';
@@ -258,7 +258,7 @@ async function updateFaq(args: Args, actorId: string): Promise<ToolExecutionResu
   if (!didChange) return { ok: false, code: 'invalid_arguments', message: 'Tidak ada perubahan yang diberikan.' };
   const updates: Record<string, unknown> = { title, content, category, source_url: sourceUrl };
   if (title !== existing.title || content !== existing.content) updates.embedding = await embedText(`${title}\n\n${content}`);
-  const audit = await writeAuditLog({ actorId, action: 'admin.kb.update', resourceType: 'knowledge_base', resourceId: String(args.id), metadata: { category, embeddingRegenerated: 'embedding' in updates } });
+  const audit = await writeAuditLog({ actorId, action: 'admin.kb.update', resourceType: 'knowledge_base', resourceId: ADMIN_TOOL_DEFINITIONS.delete_faq.schema.parse(args).id, metadata: { category, embeddingRegenerated: 'embedding' in updates } });
   if (!audit.ok) return { ok: false, code: 'audit_unavailable', message: 'Pembaruan FAQ dibatalkan karena audit log tidak tersedia.' };
   const { data, error } = await supabase.from('knowledge_base').update(updates).eq('id', args.id).select('id, title, category, is_published, updated_at').single();
   if (error) throw new Error('query_failed');
@@ -283,7 +283,7 @@ async function sendBroadcast(args: Args, actorId: string): Promise<ToolExecution
     created_by: actorId,
     title,
     message,
-    audience: args.audience === 'active_30_days' ? 'active_30_days' : 'all',
+    audience: ADMIN_TOOL_DEFINITIONS.send_broadcast.schema.parse(args).audience === 'active_30_days' ? 'active_30_days' : 'all',
     status: 'pending',
     confirmed_at: new Date().toISOString(),
     delivery_result: { queued_via: 'admin_copilot' },
@@ -422,29 +422,29 @@ export async function executeAdminTool(name: AdminToolName, rawInput: unknown, c
 
   try {
     switch (name) {
-      case 'get_chat_stats': return await getChatStats(Number(args.days));
+      case 'get_chat_stats': return await getChatStats(Number(ADMIN_TOOL_DEFINITIONS.get_chat_stats.schema.parse(args).days));
       case 'get_ticket_stats': return await getTicketStats();
       case 'list_tickets': return await listTickets(args);
       case 'assign_ticket': return await assignTicket(args, adminUserId);
       case 'close_ticket': return await closeTicket(args, adminUserId);
-      case 'get_top_topics': return await getTopTopics(Number(args.days));
-      case 'get_token_usage': return await getTokenUsage(Number(args.days));
+      case 'get_top_topics': return await getTopTopics(Number(ADMIN_TOOL_DEFINITIONS.get_top_topics.schema.parse(args).days));
+      case 'get_token_usage': return await getTokenUsage(Number(ADMIN_TOOL_DEFINITIONS.get_token_usage.schema.parse(args).days));
       case 'get_provider_status': return await getProviderStatus();
       case 'switch_model': return await switchModel(args, adminUserId);
       case 'add_faq': return await addFaq(args, adminUserId);
       case 'update_faq': return await updateFaq(args, adminUserId);
       case 'delete_faq': {
-        const audit = await writeAuditLog({ actorId: adminUserId, action: 'admin.kb.delete', resourceType: 'knowledge_base', resourceId: String(args.id), metadata: { confirmed: true } });
+        const audit = await writeAuditLog({ actorId: adminUserId, action: 'admin.kb.delete', resourceType: 'knowledge_base', resourceId: ADMIN_TOOL_DEFINITIONS.delete_faq.schema.parse(args).id, metadata: { confirmed: true } });
         if (!audit.ok) return { ok: false, code: 'audit_unavailable', message: 'Penghapusan FAQ dibatalkan karena audit log tidak tersedia.' };
         return await deleteFaq(args);
       }
       case 'send_broadcast': {
-        const audit = await writeAuditLog({ actorId: adminUserId, action: 'admin.broadcast.enqueue', resourceType: 'broadcast_queue', metadata: { confirmed: true, audience: args.audience } });
+        const audit = await writeAuditLog({ actorId: adminUserId, action: 'admin.broadcast.enqueue', resourceType: 'broadcast_queue', metadata: { confirmed: true, audience: ADMIN_TOOL_DEFINITIONS.send_broadcast.schema.parse(args).audience } });
         if (!audit.ok) return { ok: false, code: 'audit_unavailable', message: 'Broadcast dibatalkan karena audit log tidak tersedia.' };
         return await sendBroadcast(args, adminUserId);
       }
-      case 'get_user_activity': return await getUserActivity(Number(args.days));
-      case 'generate_report': return await generateReport(Number(args.days));
+      case 'get_user_activity': return await getUserActivity(Number(ADMIN_TOOL_DEFINITIONS.get_user_activity.schema.parse(args).days));
+      case 'generate_report': return await generateReport(Number(ADMIN_TOOL_DEFINITIONS.generate_report.schema.parse(args).days));
       default: return { ok: false, code: 'invalid_arguments', message: 'Tool tidak diizinkan.' };
     }
   } catch (error) {
@@ -485,3 +485,4 @@ export async function executePendingAdminAction(confirmationId: string, actorId:
 export function isAdminToolName(value: string): value is AdminToolName {
   return Object.prototype.hasOwnProperty.call(ADMIN_TOOL_DEFINITIONS, value);
 }
+

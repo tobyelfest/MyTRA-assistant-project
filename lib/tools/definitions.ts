@@ -1,9 +1,8 @@
-import 'server-only';
+﻿import 'server-only';
 import { z } from 'zod';
 import { KNOWLEDGE_CATEGORIES } from '@/lib/rag/retrieve';
 
 const ticketStatus = z.enum(['open', 'in_progress', 'waiting_user', 'resolved', 'closed']);
-const priority = z.enum(['low', 'normal', 'high', 'urgent']);
 const category = z.enum(KNOWLEDGE_CATEGORIES);
 const days = z.number().int().min(1).max(90).default(7);
 const ticketId = z.string().uuid();
@@ -103,3 +102,4 @@ export const ADMIN_TOOL_DEFINITIONS = {
 
 export type AdminToolName = keyof typeof ADMIN_TOOL_DEFINITIONS;
 export type AdminToolArguments<T extends AdminToolName> = z.infer<(typeof ADMIN_TOOL_DEFINITIONS)[T]['schema']>;
+
